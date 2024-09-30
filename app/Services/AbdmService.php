@@ -88,32 +88,89 @@ class AbdmService
         }
         
     }
-    public function createAbhaId($data)
+
+    public function enrollByAadhaar($payload)
     {
+        try {
+            $token = $this->getAccessToken();
+            $accessToken = $token['accessToken'];
+            try {
+                $response = Http::withHeaders([
+                    'Content-Type' => 'application/json',
+                    'TIMESTAMP' => now()->toISOString(), // Current timestamp in UTC
+                    'REQUEST-ID' => Str::uuid()->toString(), // Generate a unique request ID
+                    'Authorization' => 'Bearer ' . $accessToken,
+                ])->post('https://abhasbx.abdm.gov.in/abha/api/v3/enrollment/enrol/byAadhaar', $payload);
+        
+                // Check for a successful response
+                if ($response->successful()) {
+                    // Handle successful response
+                    return response()->json($response->json());
+                } else {
+                    // Handle error response
+                    return response()->json(['error' => $response->json()], $response->status());
+                }
+            } catch (\Exception $e) {
+                // Handle exception
+                return response()->json(['error' => $e->getMessage()], 500);
+            }
+           
+        } catch (\Throwable $th) {
+            logger($th->getMessage());
+        }
+    }
+
+    public function getAccountProfile($xToken){
+        // Send the GET request
+    try {
         $token = $this->getAccessToken();
-        $response = Http::withToken($token)->post($this->baseUrl . 'abha/create', $data);
+        $accessToken = $token['accessToken'];
+        $response = Http::withHeaders([
+            'X-token' => $xToken,
+            'REQUEST-ID' =>  Str::uuid()->toString(), // Generate a unique request ID
+            'TIMESTAMP' => now()->toISOString(), // Current timestamp in UTC
+            'Authorization' => 'Bearer ' . $accessToken,
+        ])->get('https://abhasbx.abdm.gov.in/abha/api/v3/profile/account');
 
-        return $response->json();
+        // Check for a successful response
+        if ($response->successful()) {
+            // Handle successful response
+            return response()->json($response->json());
+        } else {
+            // Handle error response
+            return response()->json(['error' => $response->json()], $response->status());
+        }
+    } catch (\Exception $e) {
+        // Handle exception
+        return response()->json(['error' => $e->getMessage()], 500);
     }
-
-    public function verifyOtp($otp, $transactionId)
-    {
-        $token = $this->getAccessToken()['access_token'];
-
-        $response = Http::withToken($token)->post($this->baseUrl . '/v1/abha/verifyOtp', [
-            'otp' => $otp,
-            'transactionId' => $transactionId,
-        ]);
-
-        return $response->json();
     }
+    // public function createAbhaId($data)
+    // {
+    //     $token = $this->getAccessToken();
+    //     $response = Http::withToken($token)->post($this->baseUrl . 'abha/create', $data);
 
-    public function getAbhaProfile($abhaId)
-    {
-        $token = $this->getAccessToken()['access_token'];
+    //     return $response->json();
+    // }
 
-        $response = Http::withToken($token)->get($this->baseUrl . '/v1/abha/profile/' . $abhaId);
+    // public function verifyOtp($otp, $transactionId)
+    // {
+    //     $token = $this->getAccessToken()['access_token'];
 
-        return $response->json();
-    }
+    //     $response = Http::withToken($token)->post($this->baseUrl . '/v1/abha/verifyOtp', [
+    //         'otp' => $otp,
+    //         'transactionId' => $transactionId,
+    //     ]);
+
+    //     return $response->json();
+    // }
+
+    // public function getAbhaProfile($abhaId)
+    // {
+    //     $token = $this->getAccessToken()['access_token'];
+
+    //     $response = Http::withToken($token)->get($this->baseUrl . '/v1/abha/profile/' . $abhaId);
+
+    //     return $response->json();
+    // }
 }

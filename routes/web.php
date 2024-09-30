@@ -4,12 +4,18 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\AbdmController;
 
-
-
-Route::get('/create-abha', [AbdmController::class, 'createAbha']);
+//M1
 Route::get('/send-otp', [AbdmController::class, 'requestOtp']);
-Route::post('/verify-otp', [AbdmController::class, 'verifyOtp']);
-Route::get('/abha-profile/{abhaId}', [AbdmController::class, 'getProfile']);
+
+Route::get('/enrol/byAadhaar', [AbdmController::class, 'enrollByAadhaar']);
+
+Route::get('profile/account', [AbdmController::class, 'getAccountProfile']);
+
+
+
+
+// Route::post('/verify-otp', [AbdmController::class, 'verifyOtp']);
+// Route::get('/abha-profile/{abhaId}', [AbdmController::class, 'getProfile']);
 
 // Route::get('/test-env', function () {
 //     return [
