@@ -20,6 +20,11 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'aadhaar_number',
+        'mobile',
+        'txnId',
+        'otp',
+
     ];
 
     /**

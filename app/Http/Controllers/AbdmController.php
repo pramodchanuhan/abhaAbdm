@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Services\AbdmService;
 use Exception;
+use Illuminate\Contracts\Session\Session;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -51,8 +52,8 @@ class AbdmController extends Controller
     public function requestOtp()
     {
         try {
-            //947292841782 //882260556552
-            $aadhaarNumber = '527613815535';
+            //947292841782 //882260556552 //846741677520
+            $aadhaarNumber = '846741677520';
             $publicKeyPath = storage_path('keys/abdm_public_key.pem');
             $encryptedAadhaar = $this->encryptAadhaar($aadhaarNumber, $publicKeyPath);
             $payload = [
@@ -62,12 +63,31 @@ class AbdmController extends Controller
                 'loginId' => $encryptedAadhaar,  // Pass the encrypted Aadhaar number
                 'otpSystem' => 'aadhaar',
             ];
-            return $response = $this->abdmService->requestOtp($payload);
-            User::create([
+            $response = $this->abdmService->requestOtp($payload);
+            // Check if txnId is present in the response
+            if (empty($response['txnId'])) {
+                return response()->json(['error' => 'OTP not found.'], 404);
+            }
+
+            // Access txnId and message
+            $txnId = $response['txnId'] ?? null;
+            $message = $response['message'] ?? null;
+            if (preg_match('/\*\*\*\*\*(\d{4})/', $message, $matches)) {
+                $lastFourDigits = $matches[1]; // The first capturing group contains the last four digits
+            } else {
+                $lastFourDigits = null; // Handle case where no match is found
+            }
+            // Create a new User record
+            $save = User::create([
                 'aadhaar_number' => $aadhaarNumber,
-                'txn_id' => $response->txnId,
+                'txnId' => $txnId,
+                'mobile' => $lastFourDigits,
             ]);
-            return response()->json($response);
+
+            // Return the response if the record is saved successfully
+            return $save
+                ? response()->json($response)
+                : response()->json(['error' => 'Failed to save user.'], 500);
         } catch (\Exception $e) {
             logger($e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
@@ -104,16 +124,21 @@ class AbdmController extends Controller
     public function enrollByAadhaar(Request $request)
     {
         try {
-            $userdetail = User::where('otp', $request->otp)->first();
+            //$otp = $request->otp;
+            $otp = '895060';
+            //  $mobilenumber = $request->mobilenumber;
+            $mobilenumber = '9760986894';
+            $lastFourDigits = substr($mobilenumber, -4);
+            $userdetail = User::where('mobile', 'like', '%' . $lastFourDigits)->first();
             if (!$userdetail) {
                 return response()->json(['error' => 'OTP not found.'], 404);
             } else {
                 $aadhaarNumber = $userdetail->aadhaar_number;
                 $publicKeyPath = storage_path('keys/abdm_public_key.pem');
                 $encryptedAadhaar = $this->encryptAadhaar($aadhaarNumber, $publicKeyPath);
-                $xToken = $userdetail->txn_id;
-                $otp = '145356';
-                $mobilenumber = '9454076698';
+                $xToken = $userdetail->txnId;
+                // $otp = '145356';
+                // $mobilenumber = '9454076698';
                 // Prepare the necessary data
                 $currentTimestamp = now()->toISOString(); // Get the current timestamp in ISO 8601 format
                 $txnId = $xToken; // Generate a new transaction ID
@@ -121,7 +146,6 @@ class AbdmController extends Controller
                 $publicKeyPath = storage_path('keys/abdm_public_key.pem');
                 $encryptedAadhaar = $this->encryptOtp($otp, $publicKeyPath);
                 $encryptedOtp = $encryptedAadhaar; // Replace with the encrypted OTP
-                $mobileNumber = $mobilenumber; // Replace with the actual mobile number
 
                 // Construct the request payload
                 $payload = [
@@ -131,7 +155,7 @@ class AbdmController extends Controller
                             'timeStamp' => $currentTimestamp,
                             'txnId' => $txnId,
                             'otpValue' => $encryptedOtp,
-                            'mobile' => $mobileNumber,
+                            'mobile' => $mobilenumber,
                         ],
                     ],
                     'consent' => [
@@ -140,7 +164,14 @@ class AbdmController extends Controller
                     ],
                 ];
                 $response = $this->abdmService->enrollByAadhaar($payload);
+
                 return response()->json($response);
+                if (empty($response['tokens'])) {
+                    return response()->json(['error' => 'OTP not found.'], 404);
+                }
+                else{
+                session()->put('enrollByAadhaartxnId', empty($response['tokens']['token']));
+                }
             }
         } catch (\Exception $e) {
             logger($e->getMessage());
@@ -150,19 +181,10 @@ class AbdmController extends Controller
 
     public function getAccountProfile(Request $request)
     {
-        //return $token = $this->requestOtp(); 
         try {
-            $token = $this->requestOtp(); // This should return a JsonResponse
-            $data = json_decode($token->getContent(), true);
-            if (isset($data['txnId'])) {
-                $xToken =  $data['txnId'];
-                $response = $this->abdmService->getAccountProfile($xToken);
-                return response()->json($response);
-            } else {
-                // Handle the case where txnId does not exist or JSON decoding failed
-                // You could throw an exception, return an error message, etc.
-                return response()->json(['error' => 'Transaction ID not found.'], 404);
-            }
+            $xToken = session()->get('enrollByAadhaartxnId');
+            $response = $this->abdmService->getAccountProfile($xToken);
+            return response()->json($response);
         } catch (\Exception $e) {
             logger($e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);

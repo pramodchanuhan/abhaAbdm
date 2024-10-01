@@ -6,10 +6,8 @@ use App\Http\Controllers\AbdmController;
 
 //M1
 Route::get('/send-otp', [AbdmController::class, 'requestOtp']);
-
 Route::get('/enrol/byAadhaar', [AbdmController::class, 'enrollByAadhaar']);
-
-Route::get('profile/account', [AbdmController::class, 'getAccountProfile']);
+Route::get('/profile/account', [AbdmController::class, 'getAccountProfile']);
 
 
 

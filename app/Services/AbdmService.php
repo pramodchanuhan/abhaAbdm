@@ -71,7 +71,6 @@ class AbdmService
             'REQUEST-ID' => $requestId,
             'Authorization' => "Bearer {$accessToken}",
         ])->post("https://abhasbx.abdm.gov.in/abha/api/v3/enrollment/request/otp", $payload);
-        return $response->json();
         // Handle the response
         if ($response->successful()) {
             return $response->json();
@@ -126,7 +125,7 @@ class AbdmService
         $token = $this->getAccessToken();
         $accessToken = $token['accessToken'];
         $response = Http::withHeaders([
-            'X-token' => $xToken,
+            'X-token' => 'Bearer '.$xToken,
             'REQUEST-ID' =>  Str::uuid()->toString(), // Generate a unique request ID
             'TIMESTAMP' => now()->toISOString(), // Current timestamp in UTC
             'Authorization' => 'Bearer ' . $accessToken,
