@@ -33,7 +33,6 @@ class AyushmanService
             'api_key' => $this->apiKey,
             'secret' => $this->secret,
         ]);
-        return $response;
         return $response->json()['access_token'];
     }
 }

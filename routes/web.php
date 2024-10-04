@@ -6,15 +6,15 @@ use App\Http\Controllers\AbdmController;
 use App\Http\Controllers\AyushmanController;
 
 //M1
-Route::get('/send-otp', [AbdmController::class, 'requestOtp']);
-Route::get('/enrol/byAadhaar', [AbdmController::class, 'enrollByAadhaar']);
-Route::get('/profile/account', [AbdmController::class, 'getAccountProfile']);
-Route::get('/abha-address/suggestions', [AbdmController::class, 'abhaAddressSuggestions']);
-Route::get('/enroll-abha-address', [AbdmController::class, 'enrollAbhaAddress']);
+Route::get('/send-otp', [AbdmController::class, 'requestOtp'])->name('request-otp');
+Route::get('/enrol/byAadhaar', [AbdmController::class, 'enrollByAadhaar'])->name('enroll-by-aadhaar');
+Route::get('/profile/account', [AbdmController::class, 'getAccountProfile'])->name('get-account-profile');
+Route::get('/abha-address/suggestions', [AbdmController::class, 'abhaAddressSuggestions'])->name('abha-address-suggestions');
+Route::get('/enroll-abha-address', [AbdmController::class, 'enrollAbhaAddress'])->name('enroll-abha-address');
 
 
 //M2
-Route::get('/get-access-tokenM2', [AbdmController::class, 'accessTokenM2']);
+Route::get('/upadate-bridge-url', [AbdmController::class, 'updateBridgeUrl'])->name('update-bridge-url');
 
 //Ayushman
 Route::get('/verify-ayushman-card', [AyushmanController::class, 'verifyCard']);

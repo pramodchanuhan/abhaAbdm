@@ -212,9 +212,6 @@ class AbdmController extends Controller
                 'abhaAddress' => 'required|string',
             ]);
 
-            // Set the API endpoint
-            $url = config('constants.abdm_base_url') . 'enrollment/enrol/abha-address';
-
             // Prepare the request data
             $data = [
                 'txnId' => $request->txnId,
@@ -229,15 +226,25 @@ class AbdmController extends Controller
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
+
     //M2
-    public function accessTokenM2(Request $request)
+    public function updateBridgeUrl(Request $request)
     {
-        try {
-            $response = $this->abdmService->getAccessToken();
+        // try {
+        //     $request->validate([
+                //'url' => 'required|string',
+                $url = 'https://dev.abdm.gov.in/api/hiecm/gateway/v3/bridge/url';
+            // ]);
+            $data = [
+                'url' => $url,
+                'X-CM-ID' => 'sbx',
+            ];
+            $response = $this->abdmService->updateBridgeUrl($data);
             return response()->json($response);
-        } catch (\Exception $e) {
-            logger($e->getMessage());
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+        // } catch (\Exception $e) {
+        //     logger($e->getMessage());
+        //     return response()->json(['error' => $e->getMessage()], 500);
+        // }
     }
 }
