@@ -70,7 +70,7 @@ class AbdmService
             'TIMESTAMP' => $timestamp,
             'REQUEST-ID' => $requestId,
             'Authorization' => "Bearer {$accessToken}",
-        ])->post("https://abhasbx.abdm.gov.in/abha/api/v3/enrollment/request/otp", $payload);
+        ])->post($this->baseUrl . "enrollment/request/otp", $payload);
         // Handle the response
         if ($response->successful()) {
             return $response->json();
@@ -99,7 +99,7 @@ class AbdmService
                     'TIMESTAMP' => now()->toISOString(), // Current timestamp in UTC
                     'REQUEST-ID' => Str::uuid()->toString(), // Generate a unique request ID
                     'Authorization' => 'Bearer ' . $accessToken,
-                ])->post('https://abhasbx.abdm.gov.in/abha/api/v3/enrollment/enrol/byAadhaar', $payload);
+                ])->post($this->baseUrl . 'enrollment/enrol/byAadhaar', $payload);
         
                 // Check for a successful response
                 if ($response->successful()) {
@@ -129,7 +129,7 @@ class AbdmService
             'REQUEST-ID' =>  Str::uuid()->toString(), // Generate a unique request ID
             'TIMESTAMP' => now()->toISOString(), // Current timestamp in UTC
             'Authorization' => 'Bearer ' . $accessToken,
-        ])->get('https://abhasbx.abdm.gov.in/abha/api/v3/profile/account');
+        ])->get($this->baseUrl . 'profile/account');
 
         // Check for a successful response
         if ($response->successful()) {
@@ -144,32 +144,56 @@ class AbdmService
         return response()->json(['error' => $e->getMessage()], 500);
     }
     }
-    // public function createAbhaId($data)
-    // {
-    //     $token = $this->getAccessToken();
-    //     $response = Http::withToken($token)->post($this->baseUrl . 'abha/create', $data);
+        public function abhaAddressSuggestions($token)
+        {
+            try {
+                $token = $this->getAccessToken();
+                $accessToken = $token['accessToken'];
+                $response = Http::withHeaders([
+                    'Transaction_Id' => $token,
+                    'REQUEST-ID' =>  Str::uuid()->toString(), // Generate a unique request ID
+                    'TIMESTAMP' => now()->toISOString(), // Current timestamp in UTC
+                    'Authorization' => 'Bearer ' . $accessToken,
+                ])->get($this->baseUrl . 'enrollment/enrol/suggestion');
+                if ($response->successful()) {
+                    // Handle successful response
+                    return response()->json($response->json());
+                } else {
+                    return response()->json(['error' => $response->json()], $response->status());
+                }
+        }
+        catch (\Exception $e) {
+            // Handle exception
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 
-    //     return $response->json();
-    // }
+    public function enrollAbhaAddress($data){
+        try{
+        $url = $this->baseUrl . 'enrollment/enrol/abha-address';
+        $token = $this->getAccessToken();
+        $accessToken = $token['accessToken'];
+        $response = Http::withHeaders([
+            'REQUEST-ID' => Str::uuid()->toString(), // You can generate a unique ID as needed
+            'TIMESTAMP' => now()->toISOString(), // Current timestamp
+            'Authorization' => 'Bearer ' . $accessToken,
+        ])->post($url, $data);
 
-    // public function verifyOtp($otp, $transactionId)
-    // {
-    //     $token = $this->getAccessToken()['access_token'];
+        // Handle the response
+        if ($response->successful()) {
+            return response()->json($response->json(), 200);
+        } else {
+            return response()->json($response->json(), $response->status());
+        }
+    }
+    catch (\Exception $e) {
+        // Handle exception
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+    }
 
-    //     $response = Http::withToken($token)->post($this->baseUrl . '/v1/abha/verifyOtp', [
-    //         'otp' => $otp,
-    //         'transactionId' => $transactionId,
-    //     ]);
 
-    //     return $response->json();
-    // }
-
-    // public function getAbhaProfile($abhaId)
-    // {
-    //     $token = $this->getAccessToken()['access_token'];
-
-    //     $response = Http::withToken($token)->get($this->baseUrl . '/v1/abha/profile/' . $abhaId);
-
-    //     return $response->json();
-    // }
+    //m2
+    
+ 
 }

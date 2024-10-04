@@ -53,7 +53,7 @@ class AbdmController extends Controller
     {
         try {
             //947292841782 //882260556552 //846741677520
-            $aadhaarNumber = '846741677520';
+            $aadhaarNumber = '527613815535';
             $publicKeyPath = storage_path('keys/abdm_public_key.pem');
             $encryptedAadhaar = $this->encryptAadhaar($aadhaarNumber, $publicKeyPath);
             $payload = [
@@ -134,15 +134,15 @@ class AbdmController extends Controller
                 return response()->json(['error' => 'OTP not found.'], 404);
             } else {
                 $aadhaarNumber = $userdetail->aadhaar_number;
+                session()->put('txnId', $userdetail->txnId);
+                $userdetail->delete();
                 $publicKeyPath = storage_path('keys/abdm_public_key.pem');
                 $encryptedAadhaar = $this->encryptAadhaar($aadhaarNumber, $publicKeyPath);
-                $xToken = $userdetail->txnId;
+
                 // $otp = '145356';
                 // $mobilenumber = '9454076698';
                 // Prepare the necessary data
-                $currentTimestamp = now()->toISOString(); // Get the current timestamp in ISO 8601 format
-                $txnId = $xToken; // Generate a new transaction ID
-
+                $currentTimestamp = now()->toISOString();
                 $publicKeyPath = storage_path('keys/abdm_public_key.pem');
                 $encryptedAadhaar = $this->encryptOtp($otp, $publicKeyPath);
                 $encryptedOtp = $encryptedAadhaar; // Replace with the encrypted OTP
@@ -153,7 +153,7 @@ class AbdmController extends Controller
                         'authMethods' => ['otp'],
                         'otp' => [
                             'timeStamp' => $currentTimestamp,
-                            'txnId' => $txnId,
+                            'txnId' => session()->get('txnId'),
                             'otpValue' => $encryptedOtp,
                             'mobile' => $mobilenumber,
                         ],
@@ -168,9 +168,8 @@ class AbdmController extends Controller
                 return response()->json($response);
                 if (empty($response['tokens'])) {
                     return response()->json(['error' => 'OTP not found.'], 404);
-                }
-                else{
-                session()->put('enrollByAadhaartxnId', empty($response['tokens']['token']));
+                } else {
+                    session()->put('enrollByAadhaartxnId', $response['tokens']['token']);
                 }
             }
         } catch (\Exception $e) {
@@ -191,23 +190,54 @@ class AbdmController extends Controller
         }
     }
 
+    public function abhaAddressSuggestions(Request $request)
+    {
+        try {
+            // $xToken = session()->get('enrollByAadhaartxnId');
+            $xToken = '9e5d91bd-a294-4d32-bc5a-cc92ba290926';
+            $response = $this->abdmService->abhaAddressSuggestions($xToken);
+            return response()->json($response);
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 
+    public function enrollAbhaAddress(Request $request)
+    {
+        try {
+            // Validate the incoming request if needed
+            $request->validate([
+                'txnId' => 'required|string',
+                'abhaAddress' => 'required|string',
+            ]);
 
+            // Set the API endpoint
+            $url = config('constants.abdm_base_url') . 'enrollment/enrol/abha-address';
 
-    // public function verifyOtp(Request $request)
-    // {
-    //     $otp = $request->otp;
-    //     $transactionId = $request->transactionId;
+            // Prepare the request data
+            $data = [
+                'txnId' => $request->txnId,
+                'abhaAddress' => $request->abhaAddress,
+                'preferred' => 1,
+            ];
 
-    //     $response = $this->abdmService->verifyOtp($otp, $transactionId);
-
-    //     return response()->json($response);
-    // }
-
-    // public function getProfile($abhaId)
-    // {
-    //     $response = $this->abdmService->getAbhaProfile($abhaId);
-
-    //     return response()->json($response);
-    // }
+            $response = $this->abdmService->enrollAbhaAddress($data);
+            return response()->json($response);
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+    //M2
+    public function accessTokenM2(Request $request)
+    {
+        try {
+            $response = $this->abdmService->getAccessToken();
+            return response()->json($response);
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 }

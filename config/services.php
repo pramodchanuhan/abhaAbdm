@@ -34,5 +34,10 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'ayushman' => [
+        'api_url' => env('AYUSHMAN_API_URL'),
+        'api_key' => env('AYUSHMAN_API_KEY'),
+        'AYUSHMAN_SECRET' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+    ],
 
 ];
