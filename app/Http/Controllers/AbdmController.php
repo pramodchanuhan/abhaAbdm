@@ -9,6 +9,7 @@ use Illuminate\Contracts\Session\Session;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use League\CommonMark\Node\Block\Document;
 
 class AbdmController extends Controller
 {
@@ -78,11 +79,14 @@ class AbdmController extends Controller
                 $lastFourDigits = null; // Handle case where no match is found
             }
             // Create a new User record
-            $save = User::create([
-                'aadhaar_number' => $aadhaarNumber,
-                'txnId' => $txnId,
-                'mobile' => $lastFourDigits,
-            ]);
+            $save = User::updateOrCreate(
+                // Condition to check if the user exists (based on aadhaar_number)
+                ['aadhaar_number' => $aadhaarNumber],
+                [
+                    'txnId' => $txnId,
+                    'mobile' => $lastFourDigits,
+                ]
+            );
 
             // Return the response if the record is saved successfully
             return $save
@@ -125,9 +129,9 @@ class AbdmController extends Controller
     {
         try {
             //$otp = $request->otp;
-            $otp = '895060';
+            $otp = '408322';
             //  $mobilenumber = $request->mobilenumber;
-            $mobilenumber = '9760986894';
+            $mobilenumber = '9027956097';
             $lastFourDigits = substr($mobilenumber, -4);
             $userdetail = User::where('mobile', 'like', '%' . $lastFourDigits)->first();
             if (!$userdetail) {
@@ -143,7 +147,6 @@ class AbdmController extends Controller
                 // $mobilenumber = '9454076698';
                 // Prepare the necessary data
                 $currentTimestamp = now()->toISOString();
-                $publicKeyPath = storage_path('keys/abdm_public_key.pem');
                 $encryptedAadhaar = $this->encryptOtp($otp, $publicKeyPath);
                 $encryptedOtp = $encryptedAadhaar; // Replace with the encrypted OTP
 
@@ -163,13 +166,23 @@ class AbdmController extends Controller
                         'version' => '1.4',
                     ],
                 ];
-                $response = $this->abdmService->enrollByAadhaar($payload);
+                $data = $this->abdmService->enrollByAadhaar($payload);
+                //$data = json_decode($data->getContent(), true);
 
-                return response()->json($response);
-                if (empty($response['tokens'])) {
-                    return response()->json(['error' => 'OTP not found.'], 404);
+                if (!empty($data['tokens'])) {
+                    session()->put('enrollByAadhaarToken', $data['tokens']['token']);
+                    session()->put('enrollByAadhaartxnId', $data['txnId']);
+                    //    $patientArray = [
+                    //     'message' => $data['message'],
+                    //     'txnId' => $data['txnId'],
+                    //     'mobile' => $data['mobile'],
+                    //     'phrAddress' => $data['phrAddress'],
+                    //     'ABHANumber' => $data['ABHANumber']
+                    // ];
+                    //return $patientArray;
+                    return response()->json($data);
                 } else {
-                    session()->put('enrollByAadhaartxnId', $response['tokens']['token']);
+                    return response()->json(['error' => 'OTP not found.'], 404);
                 }
             }
         } catch (\Exception $e) {
@@ -181,7 +194,7 @@ class AbdmController extends Controller
     public function getAccountProfile(Request $request)
     {
         try {
-            $xToken = session()->get('enrollByAadhaartxnId');
+            $xToken = session()->get('enrollByAadhaarToken');
             $response = $this->abdmService->getAccountProfile($xToken);
             return response()->json($response);
         } catch (\Exception $e) {
@@ -190,13 +203,35 @@ class AbdmController extends Controller
         }
     }
 
+    public function getProfileQrCode(){
+        try {
+            $xToken = session()->get('enrollByAadhaarToken');
+            $response = $this->abdmService->getProfileQrCode($xToken);
+            return response()->json(
+                $response,
+                200, // HTTP status code
+                [], // Additional headers
+                JSON_PRETTY_PRINT // Pretty print the JSON response
+            );
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+
+
     public function abhaAddressSuggestions(Request $request)
     {
         try {
-            // $xToken = session()->get('enrollByAadhaartxnId');
-            $xToken = '9e5d91bd-a294-4d32-bc5a-cc92ba290926';
+            $xToken = session()->get('enrollByAadhaartxnId');
             $response = $this->abdmService->abhaAddressSuggestions($xToken);
-            return response()->json($response);
+            return response()->json(
+                $response,
+                200, // HTTP status code
+                [], // Additional headers
+                JSON_PRETTY_PRINT // Pretty print the JSON response
+            );
         } catch (\Exception $e) {
             logger($e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
@@ -206,16 +241,17 @@ class AbdmController extends Controller
     public function enrollAbhaAddress(Request $request)
     {
         try {
+            $xToken = session()->get('enrollByAadhaartxnId');
             // Validate the incoming request if needed
-            $request->validate([
-                'txnId' => 'required|string',
-                'abhaAddress' => 'required|string',
-            ]);
+            // $request->validate([
+            //     'txnId' => 'required|string',
+            //     'abhaAddress' => 'required|string',
+            // ]);
 
             // Prepare the request data
             $data = [
-                'txnId' => $request->txnId,
-                'abhaAddress' => $request->abhaAddress,
+                'txnId' => $xToken,
+                'abhaAddress' => 'pramod_kumar100610',
                 'preferred' => 1,
             ];
 
@@ -227,21 +263,375 @@ class AbdmController extends Controller
         }
     }
 
+    public function getAbhaCard(Request $request)
+    {
+        try {
+            $xToken = session()->get('enrollByAadhaarToken');
+            $response = $this->abdmService->getAbhaCard($xToken);
+            return response()->json($response);
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+    //enroll by DL
+    public function encryptMobileNumber($mobileNumber, $publicKeyPath)
+    {
+        try {
+            // Load the public key from the provided path
+            $publicKey = file_get_contents($publicKeyPath);
+            if ($publicKey === false) {
+                throw new Exception("Unable to load public key from path: $publicKeyPath");
+            }
+
+            // Extract public key resource
+            $publicKeyResource = openssl_get_publickey($publicKey);
+            if (!$publicKeyResource) {
+                throw new Exception("Invalid public key.");
+            }
+
+            // Validate mobile number (ensure it is 10 digits)
+            if (!preg_match('/^\d{10}$/', $mobileNumber)) {
+                throw new Exception("Invalid mobile number. It must be 10 digits.");
+            }
+
+            // Encrypt the mobile number
+            $encryptedMobile = null;
+            $success = openssl_public_encrypt($mobileNumber, $encryptedMobile, $publicKeyResource, OPENSSL_PKCS1_OAEP_PADDING);
+
+            // Free the public key resource
+            openssl_free_key($publicKeyResource);
+
+            // Handle encryption success/failure
+            if (!$success) {
+                throw new Exception("Encryption failed.");
+            }
+
+            // Return the encrypted mobile number, base64 encoded
+            return base64_encode($encryptedMobile);
+        } catch (\Exception $e) {
+            // Log the error and return a 500 error response
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function enrollByDLSendOtp(Request $request)
+    {
+        try {
+            // Validate the incoming request if needed
+            // $request->validate([
+            //     'mobileNumber' => 'required|string|min:10|max:10',
+            // ]);
+            //  $mobileNumber = 'your-encrypted-mobile-number'; // Replace with actual encrypted mobile number
+            $mobileNumber = '9027956097'; // Replace with actual encrypted mobile number
+            $publicKeyPath = storage_path('keys/abdm_public_key.pem');
+            $encryptedMobileNumber = $this->encryptMobilenumber($mobileNumber, $publicKeyPath);
+            $response = $this->abdmService->enrollByDLSendOtp($encryptedMobileNumber);
+            if (!empty($response['txnId'])) {
+                session()->put('enrollByDLSendOtpTxnId', $response['txnId']);
+                return response()->json($response);
+            } else {
+                return response()->json(['error' => $response['message']], 500);
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function enrollByDLVerifyOtp(Request $request)
+    {
+        try {
+            // $request->validate([
+            //     'otp' => 'required|string',
+            // ]);
+            $otp = '055142';
+            $enrollByDLSendOtpTxnId = session()->get('enrollByDLSendOtpTxnId');
+            $publicKeyPath = storage_path('keys/abdm_public_key.pem');
+            $encryptedOtp = $this->encryptOtp($otp, $publicKeyPath);
+            $response = $this->abdmService->enrollByDLVerifyOtp($encryptedOtp, $enrollByDLSendOtpTxnId);
+            //return response()->json($response);
+            if (!empty($response['txnId'])) {
+                session()->put('enrollByDLVerifyOtpTxnId', $response['txnId']);
+                return response()->json($response);
+            } else {
+                return response()->json(['error' => $response['message']], 500);
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function enrollbyDL(Request $request)
+    {
+        try {
+            $request->validate([
+                'documentId' => 'required|string',
+                'firstName' => 'required|string',
+                'middleName' => 'some time|nullable|string',
+                'lastName' => 'required|string',
+                'dob' => 'required|date',
+                'gender' => 'required|string',
+                'frontSidePhoto' => 'required|image|max:2048', // Ensure it's an image and set a size limit (in KB)
+                'backSidePhoto' => 'required|image|max:2048',
+                'address' => 'required|string',
+                'state' => 'required|string',
+                'district' => 'required|string',
+                'pincode' => 'required|string',
+            ]);
+
+            $frontPhotoBase64 = base64_encode(file_get_contents($request->file('frontSidePhoto')->path()));
+            $backPhotoBase64 = base64_encode(file_get_contents($request->file('backSidePhoto')->path()));
+
+            $txnId = session()->get('enrollByDLVerifyOtpTxnId');
+            $payload = [
+                "txnId" => $txnId,
+                "documentType" => "DRIVING_LICENCE",
+                "documentId" => 'UP13 20240014937',  // DL number
+                "firstName" => 'PRAMOD',     // First Name
+                "middleName" => '',   // Middle Name
+                "lastName" => 'KUMAR',       // Last Name
+                "dob" => '1991-06-10',                  // DOB
+                "gender" => 'M',            // Gender
+                "frontSidePhoto" =>  $frontPhotoBase64,  // Base64 front photo
+                "backSidePhoto" => $backPhotoBase64,  // Base64 back photo
+                "address" => 'NAVI NAGAR DAVKORA ANUPSHAHR BULANDSHAHR UTTAR PRADESH 202394',          // Address
+                "state" => 'Uttar Pradesh',              // State
+                "district" => 'Bulandshahr',        // District
+                "pinCode" => '202394',          // Pincode
+                "consent" => [
+                    "code" => "abha-enrollment",
+                    "version" => "1.4"
+                ]
+            ];
+            $response = $this->abdmService->enrollbyDL($payload);
+            return response()->json($response);
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+    public function encryptAbhaNumber($abhaNumber, $publicKeyPath)
+    {
+        try {
+            // Load the public key from the provided path
+            $publicKey = file_get_contents($publicKeyPath);
+            if ($publicKey === false) {
+                throw new Exception("Unable to load public key from path: $publicKeyPath");
+            }
+
+            // Extract public key resource
+            $publicKeyResource = openssl_get_publickey($publicKey);
+            if (!$publicKeyResource) {
+                throw new Exception("Invalid public key.");
+            }
+
+            // Validate ABHA number (must be 17 characters including hyphens)
+            if (!preg_match('/^\d{2}-\d{4}-\d{4}-\d{4}$/', $abhaNumber)) {
+                throw new Exception("Invalid ABHA number. It must be in the format 'XX-XXXX-XXXX-XXXX'.");
+            }
+
+            // Encrypt the ABHA number (keeping the hyphens)
+            $encryptedAbha = null;
+            $success = openssl_public_encrypt($abhaNumber, $encryptedAbha, $publicKeyResource, OPENSSL_PKCS1_OAEP_PADDING);
+
+            // Free the public key resource
+            openssl_free_key($publicKeyResource);
+
+            // Handle encryption success/failure
+            if (!$success) {
+                throw new Exception("Encryption failed.");
+            }
+
+            // Return the encrypted ABHA number, base64 encoded (for API request)
+            return base64_encode($encryptedAbha);
+        } catch (\Exception $e) {
+            // Log the error and return a 500 error response
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+
+
+
+    public function abhaVerificationSendOtp(Request $request)
+    {
+        try {
+            // $request->validate([
+            //     'abhaNumber' => 'required|string',
+            // ]);
+
+            $abhaNumber = '91-5662-8037-6633';
+            $publicKeyPath = storage_path('keys/abdm_public_key.pem');
+            $encryptedAbhaNumber = $this->encryptAbhaNumber($abhaNumber, $publicKeyPath);
+            $response = $this->abdmService->abhaVerificationSendOtp($encryptedAbhaNumber);
+            if (!empty($response['txnId'])) {
+                session()->put('abhaVerificationSendOtpTxnId', $response['txnId']);
+                return response()->json($response);
+            } else {
+                return response()->json(['error' => $response['message']], 500);
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+
+    public function abhaVerificationVerifyOtp(Request $request)
+    {
+        try {
+            // $request->validate([
+            //     'otpValue' => 'required|string', // Ensure OTP value is not empty
+            // ]);
+            $otp = '274952';
+            $txnId = session()->get('abhaVerificationSendOtpTxnId');
+            $publicKeyPath = storage_path('keys/abdm_public_key.pem');
+            $encryptedOtp = $this->encryptOtp($otp, $publicKeyPath);
+            $response = $this->abdmService->abhaVerificationVerifyOtp($encryptedOtp, $txnId);
+            //return response()->json($response);
+            return response()->json(
+                $response,
+                200, // HTTP status code
+                [], // Additional headers
+                JSON_PRETTY_PRINT // Pretty print the JSON response
+            );
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function abhaVerificationByMobileNumberSendOtp(Request $request){
+        try {
+            // $request->validate([
+            //     'mobileNumber' => 'required|string',
+            // ]);
+            $mobileNumber = '9027956097';
+            $publicKeyPath = storage_path('keys/abdm_public_key.pem');
+            $encryptedMobileNumber = $this->encryptMobilenumber($mobileNumber, $publicKeyPath);
+            $response = $this->abdmService->abhaVerificationByMobileNumberSendOtp($encryptedMobileNumber);
+            if (!empty($response['txnId'])) {
+                session()->put('abhaVerificationByMobileNumberSendOtpTxnId', $response['txnId']);
+                return response()->json($response);
+            } else {
+                return response()->json(['error' => $response['message']], 500);
+            }
+            
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function abhaVerificationByMobileNumberVerifyOtp(Request $request){
+        try {
+            // $request->validate([
+            //     'otpValue' => 'required|string', // Ensure the encrypted OTP is provided
+            // ]);
+            $otp = '446256';
+            $txnId = session()->get('abhaVerificationByMobileNumberSendOtpTxnId');
+            $publicKeyPath = storage_path('keys/abdm_public_key.pem');
+            $encryptedOtp = $this->encryptOtp($otp, $publicKeyPath);
+            $response = $this->abdmService->abhaVerificationByMobileNumberVerifyOtp($encryptedOtp, $txnId);
+            if (!empty($response['txnId'])) {
+                session()->put('abhaVerificationByMobileNumberVerifyOtpTxnId', $response['txnId']);
+                session()->put('abhaVerificationByMobileNumberVerifyOtpJwtToken', $response['token']);
+                return response()->json($response);
+            } else {
+                return response()->json(['error' => $response['message']], 500);
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function verifyUser(Request $request){
+        try {
+            // $request->validate([
+            //     'abhaNumber' => 'required|string', // Ensure the encrypted OTP is provided
+            // ]);
+            $abhaNumber = '91-5662-8037-6633';
+            $txnId = session()->get('abhaVerificationByMobileNumberVerifyOtpTxnId');
+            $jwtToken = session()->get('abhaVerificationByMobileNumberVerifyOtpJwtToken');
+            $response = $this->abdmService->verifyUser($abhaNumber, $txnId, $jwtToken);
+            if (!empty($response['token'])) {
+                session()->put('enrollByAadhaarToken', $response['token']);
+                return response()->json($response);
+            } else {
+                return response()->json(['error' => $response['message']], 500);
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function abhaVerificationByAaadhaarNumberSendOtp(){
+        try {
+            // $request->validate([
+            //     'aadhaarNumber' => 'required|string',
+            // ]);
+            $aadhaarNumber = '527613815535';
+            $publicKeyPath = storage_path('keys/abdm_public_key.pem');
+            $encryptedAadhaarNumber = $this->encryptAadhaar($aadhaarNumber, $publicKeyPath);
+            $response = $this->abdmService->abhaVerificationByAaadhaarNumberSendOtp($encryptedAadhaarNumber);
+            if (!empty($response['txnId'])) {
+                session()->put('abhaVerificationByAaadhaarNumberSendOtpTxnId', $response['txnId']);
+                return response()->json($response);
+            } else {
+                return response()->json(['error' => $response['message']], 500);
+            }
+            return response()->json($response);
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+
+    }
+
+    public function abhaVerificationByAaadhaarNumberVerifyOtp(){
+        try {
+            // $request->validate([
+            //     'otpValue' => 'required|string', // Ensure the encrypted OTP is provided
+            // ]);
+            $otp = '319300';
+            $txnId = session()->get('abhaVerificationByAaadhaarNumberSendOtpTxnId');
+            $publicKeyPath = storage_path('keys/abdm_public_key.pem');
+            $encryptedOtp = $this->encryptOtp($otp, $publicKeyPath);
+            $response = $this->abdmService->abhaVerificationByAaadhaarNumberVerifyOtp($txnId, $encryptedOtp, );
+            return response()->json(
+                $response,
+                200, // HTTP status code
+                [], // Additional headers
+                JSON_PRETTY_PRINT // Pretty print the JSON response
+            );
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+
 
     //M2
     public function updateBridgeUrl(Request $request)
     {
         // try {
         //     $request->validate([
-                //'url' => 'required|string',
-                $url = 'https://dev.abdm.gov.in/api/hiecm/gateway/v3/bridge/url';
-            // ]);
-            $data = [
-                'url' => $url,
-                'X-CM-ID' => 'sbx',
-            ];
-            $response = $this->abdmService->updateBridgeUrl($data);
-            return response()->json($response);
+        //'url' => 'required|string',
+        $url = 'https://dev.abdm.gov.in/api/hiecm/gateway/v3/bridge/url';
+        // ]);
+        $data = [
+            'url' => $url,
+            'X-CM-ID' => 'sbx',
+        ];
+        $response = $this->abdmService->updateBridgeUrl($data);
+        return response()->json($response);
         // } catch (\Exception $e) {
         //     logger($e->getMessage());
         //     return response()->json(['error' => $e->getMessage()], 500);
