@@ -203,7 +203,8 @@ class AbdmController extends Controller
         }
     }
 
-    public function getProfileQrCode(){
+    public function getProfileQrCode()
+    {
         try {
             $xToken = session()->get('enrollByAadhaarToken');
             $response = $this->abdmService->getProfileQrCode($xToken);
@@ -275,7 +276,7 @@ class AbdmController extends Controller
         }
     }
     //enroll by DL
-    public function encryptMobileNumber($mobileNumber, $publicKeyPath)
+    public function encryptMobileNumber($mobileNumber, $publicKeyPath, $encryptType = null)
     {
         try {
             // Load the public key from the provided path
@@ -298,7 +299,6 @@ class AbdmController extends Controller
             // Encrypt the mobile number
             $encryptedMobile = null;
             $success = openssl_public_encrypt($mobileNumber, $encryptedMobile, $publicKeyResource, OPENSSL_PKCS1_OAEP_PADDING);
-
             // Free the public key resource
             openssl_free_key($publicKeyResource);
 
@@ -487,7 +487,7 @@ class AbdmController extends Controller
             // $request->validate([
             //     'otpValue' => 'required|string', // Ensure OTP value is not empty
             // ]);
-            $otp = '274952';
+            $otp = '301967';
             $txnId = session()->get('abhaVerificationSendOtpTxnId');
             $publicKeyPath = storage_path('keys/abdm_public_key.pem');
             $encryptedOtp = $this->encryptOtp($otp, $publicKeyPath);
@@ -505,7 +505,8 @@ class AbdmController extends Controller
         }
     }
 
-    public function abhaVerificationByMobileNumberSendOtp(Request $request){
+    public function abhaVerificationByMobileNumberSendOtp(Request $request)
+    {
         try {
             // $request->validate([
             //     'mobileNumber' => 'required|string',
@@ -520,14 +521,14 @@ class AbdmController extends Controller
             } else {
                 return response()->json(['error' => $response['message']], 500);
             }
-            
         } catch (\Exception $e) {
             logger($e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
-    public function abhaVerificationByMobileNumberVerifyOtp(Request $request){
+    public function abhaVerificationByMobileNumberVerifyOtp(Request $request)
+    {
         try {
             // $request->validate([
             //     'otpValue' => 'required|string', // Ensure the encrypted OTP is provided
@@ -550,7 +551,8 @@ class AbdmController extends Controller
         }
     }
 
-    public function verifyUser(Request $request){
+    public function verifyUser(Request $request)
+    {
         try {
             // $request->validate([
             //     'abhaNumber' => 'required|string', // Ensure the encrypted OTP is provided
@@ -571,7 +573,8 @@ class AbdmController extends Controller
         }
     }
 
-    public function abhaVerificationByAaadhaarNumberSendOtp(){
+    public function abhaVerificationByAaadhaarNumberSendOtp()
+    {
         try {
             // $request->validate([
             //     'aadhaarNumber' => 'required|string',
@@ -586,15 +589,14 @@ class AbdmController extends Controller
             } else {
                 return response()->json(['error' => $response['message']], 500);
             }
-            return response()->json($response);
         } catch (\Exception $e) {
             logger($e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
-
     }
 
-    public function abhaVerificationByAaadhaarNumberVerifyOtp(){
+    public function abhaVerificationByAaadhaarNumberVerifyOtp()
+    {
         try {
             // $request->validate([
             //     'otpValue' => 'required|string', // Ensure the encrypted OTP is provided
@@ -603,7 +605,7 @@ class AbdmController extends Controller
             $txnId = session()->get('abhaVerificationByAaadhaarNumberSendOtpTxnId');
             $publicKeyPath = storage_path('keys/abdm_public_key.pem');
             $encryptedOtp = $this->encryptOtp($otp, $publicKeyPath);
-            $response = $this->abdmService->abhaVerificationByAaadhaarNumberVerifyOtp($txnId, $encryptedOtp, );
+            $response = $this->abdmService->abhaVerificationByAaadhaarNumberVerifyOtp($txnId, $encryptedOtp,);
             return response()->json(
                 $response,
                 200, // HTTP status code
@@ -616,12 +618,213 @@ class AbdmController extends Controller
         }
     }
 
+    public function abhaSearchByMobileNumber(Request $request)
+    {
+        try {
+            // $request->validate([
+            //     'mobileNumber' => 'required|digits:10',
+            // ]);
+            $mobileNumber = '9027956097';
+            $publicKeyPath = storage_path('keys/abdm_public_key.pem');
+            $encryptedMobilenumber = $this->encryptMobilenumber($mobileNumber, $publicKeyPath);
+            $response = $this->abdmService->abhaSearchByMobileNumber($encryptedMobilenumber);
+            if (!empty($response['txnId'])) {
+                session()->put('abhaSearchTxnId', $response['txnId']);
+                return response()->json($response);
+            } else {
+                return response()->json($response);
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+
+
+    public function encryptAbhaAddress($abhaAddress, $publicKeyPath)
+    {
+        try {
+            // Step 1: Load the public key from the provided path
+            $publicKey = file_get_contents($publicKeyPath);
+            if ($publicKey === false) {
+                throw new Exception("Unable to load public key from path: $publicKeyPath");
+            }
+
+            // Step 2: Extract public key resource
+            $publicKeyResource = openssl_get_publickey($publicKey);
+            if (!$publicKeyResource) {
+                throw new Exception("Invalid public key.");
+            }
+
+            // Step 3: Validate ABHA address (must be in the format 'username@sbx')
+            if (!preg_match('/^[a-zA-Z0-9._%+-]+@sbx$/', $abhaAddress)) {
+                throw new Exception("Invalid ABHA address. It must be in the format 'username@sbx'.");
+            }
+
+            // Step 4: Encrypt the ABHA address
+            $encryptedAbha = null;
+            $success = openssl_public_encrypt($abhaAddress, $encryptedAbha, $publicKeyResource, OPENSSL_PKCS1_OAEP_PADDING);
+
+            // Free the public key resource
+            openssl_free_key($publicKeyResource);
+
+            // Step 5: Handle encryption success/failure
+            if (!$success) {
+                throw new Exception("Encryption failed.");
+            }
+
+            // Step 6: Return the encrypted ABHA address, base64 encoded (for API request)
+            return base64_encode($encryptedAbha);
+        } catch (\Exception $e) {
+            // Log the error and return a 500 error response
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+
+    public function abhaSearchByAbhaAddress()
+    {
+        try {
+            // $request->validate([
+            //     'abhaAddress' => 'required|string', 
+            // ]);
+            $abhaaddress = 'pramod_kumar100610@sbx';
+            $response = $this->abdmService->abhaSearchByAbhaAddress($abhaaddress);
+            if (!empty($response['abhaAddress'])) {
+                session()->put('abhaSearchByAbhaAddress', $response['abhaAddress']);
+                return response()->json($response);
+            } else {
+                return response()->json($response);
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function abhaSearchByAbhaAddressSendOtp()
+    {
+        try {
+            // $request->validate([
+            //     'abhaAddress' => 'required|string', 
+            // ]);
+            //$abhaSearchByAbhaAddress = session()->get('abhaSearchByAbhaAddress');
+            $abhaSearchByAbhaAddress = 'pramod_kumar100610@sbx';
+            $publicKeyPath = storage_path('keys/abdm_public_key.pem');
+            $encryptedAbhaddress = $this->encryptAbhaAddress($abhaSearchByAbhaAddress, $publicKeyPath);
+            $response = $this->abdmService->abhaSearchByAbhaAddressSendOtp($encryptedAbhaddress);
+            if (!empty($response['txnId'])) {
+                session()->put('abhaSearchByAbhaAddressSendOtpTxnId', $response['txnId']);
+                return response()->json($response);
+            } else {
+                return response()->json($response);
+            }
+            return response()->json($response);
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function abhaSearchByAbhaAddressVerifyOtp()
+    {
+        try {
+            // $request->validate([
+            //     'otp' => 'required|string',
+            // ]);
+            $otp = '953845';
+            $abhaSearchByAbhaAddressSendOtpTxnId = session()->get('abhaSearchByAbhaAddressSendOtpTxnId');
+            $publicKeyPath = storage_path('keys/abdm_public_key.pem');
+            $encryptedOtp = $this->encryptOtp($otp, $publicKeyPath);
+            $response = $this->abdmService->abhaSearchByAbhaAddressVerifyOtp($encryptedOtp, $abhaSearchByAbhaAddressSendOtpTxnId);
+            if (!empty($response['tokens'])) {
+                session()->put('abhaSearchByAbhaAddressVerifyOtpToken', $response['tokens']['token']);
+                return response()->json($response);
+            } else {
+                return response()->json($response);
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function abhaSearchByAbhaAddressGetProfile(Request $request)
+    {
+        try {
+            $abhaSearchByAbhaAddressVerifyOtpToken = session()->get('abhaSearchByAbhaAddressVerifyOtpToken');
+            if (!$abhaSearchByAbhaAddressVerifyOtpToken) {
+                return response()->json(['error' => 'Missing OTP token'], 400);
+            }
+            $response = $this->abdmService->abhaSearchByAbhaAddressGetProfile($abhaSearchByAbhaAddressVerifyOtpToken);
+            if ($response->successful()) {
+                return $response->json();
+            } else {
+                return response()->json(['error' => 'Unable to fetch profile'], $response->status());
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function abhaSearchByAbhaAddressGetQrCode(Request $request)
+    {
+        try {
+            $abhaSearchByAbhaAddressVerifyOtpToken = session()->get('abhaSearchByAbhaAddressVerifyOtpToken');
+            if (!$abhaSearchByAbhaAddressVerifyOtpToken) {
+                return response()->json(['error' => 'Missing OTP token'], 400);
+            }
+            $response = $this->abdmService->abhaSearchByAbhaAddressGetQrCode($abhaSearchByAbhaAddressVerifyOtpToken);
+            if ($response->successful()) {
+                return $response->json();
+            } else {
+                return response()->json(['error' => 'Unable to fetch profile'], $response->status());
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function generateToken(Request $request)
+    {
+        // $request->validate([
+        //     'abhaNumber' => 'required|string',
+        //     'abhaAddress' => 'required|string',
+        //     'name' => 'required|string',
+        //     'gender' => 'required|string',
+        //     'yearOfBirth' => 'required|integer',
+        //     'hipId' => 'required|string',
+        //     'cmId' => 'required|string',
+        // ]);
+        // Replace these with actual values
+        $abhaNumber = '91566280376633';
+        $abhaAddress = 'pramod_kumar100610@sbx';
+        $name = 'Pramod Kumar';
+        $gender = 'M';
+        $yearOfBirth = '1991';
+        $hipId = '7143141087-7733';
+        $cmId = 'sbx'; // This is the token you provided
+
+        return $response = $this->abdmService->generateToken($abhaNumber, $abhaAddress, $name, $gender, $yearOfBirth, $hipId, $cmId);
+        if (!empty($response['tokens'])) {
+            session()->put('abhaSearchByAbhaAddressVerifyOtpToken', $response['tokens']['token']);
+            return response()->json($response);
+        } else {
+            return response()->json($response);
+        }
+    }
+
+
 
 
     //M2
     public function updateBridgeUrl(Request $request)
     {
-        // try {
+        try {
         //     $request->validate([
         //'url' => 'required|string',
         $url = 'https://dev.abdm.gov.in/api/hiecm/gateway/v3/bridge/url';
@@ -632,9 +835,38 @@ class AbdmController extends Controller
         ];
         $response = $this->abdmService->updateBridgeUrl($data);
         return response()->json($response);
-        // } catch (\Exception $e) {
-        //     logger($e->getMessage());
-        //     return response()->json(['error' => $e->getMessage()], 500);
-        // }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updateServiceUrl(Request $request)
+    {
+        try {
+        //     $request->validate([
+        //'url' => 'required|string',
+        $url = env('SES_API_BASE_URL') . '/v1/bridges/MutipleHRPAddUpdateServices';
+        $token = env('SES_API_BEARER_TOKEN');
+    
+        // Request payload
+        $data = [
+            "facilityId" => "IN0911597591",
+            "facilityName" => "Pramod",
+            "HRP" => [
+                [
+                    "bridgeId" => "test1",
+                    "hipName" => "Pramod",
+                    "type" => "HIP",
+                    "active" => true
+                ]
+            ]
+        ];
+        $response = $this->abdmService->updateServiceUrl($data, $url);
+        return response()->json($response);
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 }

@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use GuzzleHttp\Client;
 use Exception;
+use Illuminate\Container\Attributes\Log;
+use PhpParser\Node\Stmt\Catch_;
 
 class AbdmService
 {
@@ -616,41 +618,275 @@ class AbdmService
         }
     }
 
-    public function abhaVerificationByAaadhaarNumberVerifyOtp($txnId, $encryptedOtp){
+    public function abhaVerificationByAaadhaarNumberVerifyOtp($txnId, $encryptedOtp)
+    {
         try {
             $token = $this->getAccessToken();
             $accessToken = $token['accessToken'];
             $timestamp = now()->utc()->format('Y-m-d\TH:i:s.v\Z');
             $requestId = Str::uuid()->toString();
             $response = Http::withHeaders([
-            'REQUEST-ID' => $requestId, // Generate unique ID
-            'TIMESTAMP' => $timestamp, // Current timestamp in ISO format
-            'Authorization' => 'Bearer ' . $accessToken,
-            'Content-Type' => 'application/json',
-        ])->post($this->baseUrl . 'profile/login/verify', [
-            'scope' => ['abha-login', 'aadhaar-verify'],
-            'authData' => [
-                'authMethods' => ['otp'],
-                'otp' => [
-                    'txnId' => $txnId,
-                    'otpValue' => $encryptedOtp,
-                ],
-            ]
-        ]);
+                'REQUEST-ID' => $requestId, // Generate unique ID
+                'TIMESTAMP' => $timestamp, // Current timestamp in ISO format
+                'Authorization' => 'Bearer ' . $accessToken,
+                'Content-Type' => 'application/json',
+            ])->post($this->baseUrl . 'profile/login/verify', [
+                'scope' => ['abha-login', 'aadhaar-verify'],
+                'authData' => [
+                    'authMethods' => ['otp'],
+                    'otp' => [
+                        'txnId' => $txnId,
+                        'otpValue' => $encryptedOtp,
+                    ],
+                ]
+            ]);
 
-        // Check for a successful response
-        if ($response->successful()) {
-            return $response->json();
-        } else {
-            // Return error response if the request failed
-            return response()->json(['error' => $response->json()], $response->status());
+            // Check for a successful response
+            if ($response->successful()) {
+                return $response->json();
+            } else {
+                // Return error response if the request failed
+                return response()->json(['error' => $response->json()], $response->status());
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
-    catch (\Exception $e) {
-        logger($e->getMessage());
-        return response()->json(['error' => $e->getMessage()], 500);
-}
-}
+
+    public function abhaSearchByMobileNumber($encryptedMobilenumber)
+    {
+        try {
+            $token = $this->getAccessToken();
+            $accessToken = $token['accessToken'];
+            $timestamp = now()->utc()->format('Y-m-d\TH:i:s.v\Z');
+            $requestId = Str::uuid()->toString();  // Replace with the actual token
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $accessToken,
+                'Content-Type' => 'application/json',
+                'REQUEST-ID' => $requestId, // You can generate this dynamically
+                'TIMESTAMP' => $timestamp,
+            ])->post($this->baseUrl . 'profile/account/abha/search', [
+                'scope' => ['search-abha'],
+                'mobile' => $encryptedMobilenumber,
+            ]);
+            if ($response->successful()) {
+                return $response->json();
+            } else {
+                // Return error response if the request failed
+                return response()->json(['error' => $response->json()], $response->status());
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function abhaSearchByAbhaAddress($abhaAddress)
+    {
+        try {
+            $token = $this->getAccessToken();
+            $accessToken = $token['accessToken'];
+            $timestamp = now()->utc()->format('Y-m-d\TH:i:s.v\Z');
+            $requestId = Str::uuid()->toString();
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $accessToken,
+                'Content-Type' => 'application/json',
+                'REQUEST-ID' => $requestId, // You can generate this dynamically
+                'TIMESTAMP' =>  $timestamp,  // Current timestamp in ISO 8601 format
+            ])->post($this->baseUrl . 'phr/web/login/abha/search', [
+                'abhaAddress' => $abhaAddress,
+            ]);
+            if ($response->successful()) {
+                return $response->json();
+            } else {
+                // Return error response if the request failed
+                return response()->json(['error' => $response->json()], $response->status());
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function abhaSearchByAbhaAddressSendOtp($encryptedAbhaAddress)
+    {
+        try {
+            $token = $this->getAccessToken();
+            $accessToken = $token['accessToken'];
+            $timestamp = now()->utc()->format('Y-m-d\TH:i:s.v\Z');
+            $requestId = Str::uuid()->toString();
+
+            $payload = [
+                "scope" => [
+                    "abha-address-login",
+                    "mobile-verify"
+                ],
+                "loginHint" => "abha-address",
+                "loginId" => $encryptedAbhaAddress,
+                "otpSystem" => "abdm"
+            ];
+
+            // Send POST request to ABDM API
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $accessToken,
+                'REQUEST-ID'    =>  $requestId, // Generate a unique request ID
+                'TIMESTAMP'     => $timestamp,  // Add current timestamp
+                'Content-Type'  => 'application/json',
+            ])->post('https://abhasbx.abdm.gov.in/abha/api/v3/phr/web/login/abha/request/otp', $payload);
+
+            // Debugging the response
+            if ($response->successful()) {
+                return $response->json();
+            } else {
+                logger("ABDM OTP request failed. Status: " . $response->status());
+                logger("Response Body: " . $response->body()); // Log the full response body for debugging
+                return ['error' => 'Failed to request OTP', 'status_code' => $response->status()];
+            }
+        } catch (\Exception $e) {
+            // Log and return error
+            logger($e->getMessage());
+            return ['error' => $e->getMessage()];
+        }
+    }
+
+    public function abhaSearchByAbhaAddressVerifyOtp($encryptedOtp, $abhaSearchByAbhaAddressSendOtpTxnId)
+    {
+        try {
+            $token = $this->getAccessToken();
+            $accessToken = $token['accessToken'];
+            $timestamp = now()->utc()->format('Y-m-d\TH:i:s.v\Z');
+            $requestId = Str::uuid()->toString();
+            $payload = [
+                "scope" => [
+                    "abha-address-login",
+                    "mobile-verify"
+                ],
+                "authData" => [
+                    "authMethods" => ["otp"],
+                    "otp" => [
+                        "txnId" => $abhaSearchByAbhaAddressSendOtpTxnId,   // Transaction ID from the request
+                        "otpValue" => $encryptedOtp // OTP entered by the user
+                    ]
+                ]
+            ];
+
+            // Make the POST request to the ABDM API for OTP verification
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $accessToken,
+                'REQUEST-ID'    => $requestId,
+                'TIMESTAMP'     => $timestamp,
+                'Content-Type'  => 'application/json',
+            ])->post('https://abhasbx.abdm.gov.in/abha/api/v3/phr/web/login/abha/verify', $payload);
+            if ($response->successful()) {
+                return $response->json();
+            } else {
+                logger('ABDM OTP verification failed: ' . $response->body());
+                return response()->json(['error' => 'OTP verification failed'], $response->status());
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500); // Return error response
+        }
+    }
+
+    public function abhaSearchByAbhaAddressGetProfile($abhaSearchByAbhaAddressVerifyOtpToken)
+    {
+        try {
+            $token = $this->getAccessToken();
+            $accessToken = $token['accessToken'];
+            $timestamp = now()->utc()->format('Y-m-d\TH:i:s.v\Z');
+            $requestId = Str::uuid()->toString();
+            $url = 'https://abhasbx.abdm.gov.in/abha/api/v3/phr/web/login/profile/abha-profile';
+
+            // Make the GET request with headers
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $accessToken,
+                'X-token' => 'Bearer ' . $abhaSearchByAbhaAddressVerifyOtpToken,
+                'REQUEST-ID' => $requestId,
+                'TIMESTAMP' => $timestamp,
+            ])->get($url);
+            if ($response->successful()) {
+                return $response; // Return the response directly
+            } else {
+                return $response; // Return the response object to handle in the controller
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => 'An error occurred'], 500);
+        }
+    }
+
+    // public function abhaSearchByAbhaAddressGetQrCode($abhaSearchByAbhaAddressVerifyOtpToken)
+    // {
+    //     try {
+    //         $token = $this->getAccessToken(); // Ensure you have a method to retrieve the access token
+    //         $accessToken = $token['accessToken'];
+    //         $timestamp = now()->utc()->format('Y-m-d\TH:i:s.v\Z');
+    //         $requestId = Str::uuid()->toString(); // Generate a unique request ID
+    //         $url = 'https://abhasbx.abdm.gov.in/abha/api/v3/phr/web/login/profile/abha/phr-card';
+
+    //         // Make the GET request with headers
+    //         $response = Http::withHeaders([
+    //             'Authorization' => 'Bearer ' . $accessToken,
+    //             'X-token' => 'Bearer ' . $abhaSearchByAbhaAddressVerifyOtpToken,
+    //             'REQUEST-ID' => $requestId,
+    //             'TIMESTAMP' => $timestamp,
+    //         ])->get($url);
+    //         // Log the response for debugging
+    //         logger('Response Status: ' . $response->status());
+    //         logger('Response Body: ' . $response->body());
+    //         // Handle the response
+    //         if ($response->successful()) {
+    //             return $response->json(); // Return the response in JSON format
+    //         } else {
+    //             // Handle the error appropriately
+    //             return response()->json(['error' => 'Unable to fetch profile'], $response->status());
+    //         }
+    //     } catch (\Exception $e) {
+    //         // Handle any exceptions that may occur
+    //         return response()->json(['error' => 'An error occurred: ' . $e->getMessage()], 500);
+    //     }
+    // }
+    public function abhaSearchByAbhaAddressGetQrCode($abhaSearchByAbhaAddressVerifyOtpToken)
+    {
+        try {
+            $token = $this->getAccessToken(); // Ensure you have a method to retrieve the access token
+            $accessToken = $token['accessToken'];
+            $timestamp = now()->utc()->format('Y-m-d\TH:i:s.v\Z');
+            $requestId = Str::uuid()->toString(); // Generate a unique request ID
+            $url = 'https://abhasbx.abdm.gov.in/abha/api/v3/phr/web/login/profile/abha/phr-card';
+
+            // Make the GET request with headers
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $accessToken,
+                'X-token' => 'Bearer ' . $abhaSearchByAbhaAddressVerifyOtpToken,
+                'REQUEST-ID' => $requestId,
+                'TIMESTAMP' => $timestamp,
+            ])->get($url);
+
+            // Log the response for debugging purposes
+            logger('Response Status: ' . $response->status());
+            logger('Response Body: ' . $response->body());
+
+            // Check for null response
+            if ($response === null) {
+                return response()->json(['error' => 'No response from server'], 500);
+            }
+
+            // Handle the response
+            if ($response->successful()) {
+                return $response->json(); // Return the response in JSON format
+            } else {
+                // Handle the error appropriately
+                return response()->json(['error' => 'Unable to fetch profile', 'status' => $response->status()], $response->status());
+            }
+        } catch (\Exception $e) {
+            // Handle any exceptions that may occur
+            return response()->json(['error' => 'An error occurred: ' . $e->getMessage()], 500);
+        }
+    }
 
 
 
@@ -686,6 +922,64 @@ class AbdmService
         }
     }
 
+    public function updateServiceUrl($data,$url)
+    {
+        try {
+            $token = $this->getAccessToken();
+            $accessToken = $token['accessToken'];
+            $response = Http::withToken($accessToken)
+                ->post($url, $data);
+            if ($response->successful()) {
+                return $response->json();
+            } else {
+                // Failed - handle error
+                return response()->json(['error' => 'Failed to send data'], 500);
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+
+    public function generateToken($abhaNumber, $abhaAddress, $name, $gender, $yearOfBirth, $hipId, $cmId)
+    {
+        try {
+            $token = $this->getAccessToken();
+            $accessToken = $token['accessToken'];
+            $timestamp = now()->format('Y-m-d\TH:i:s.v\Z');
+            $requestId = Str::uuid()->toString(); // Generate a unique request ID
+            $response = Http::withHeaders([
+                'REQUEST-ID' => $requestId, // or generate dynamically
+                'TIMESTAMP' =>  $timestamp, // Laravel helper to generate timestamp
+                'X-HIP-ID' => $hipId,
+                'X-CM-ID' => $cmId,
+                'Authorization' => 'Bearer ' . $accessToken,
+                'Content-Type' => 'application/json'
+            ])->post('https://dev.abdm.gov.in/api/hiecm/v3/token/generate-token', [
+                'abhaNumber' => $abhaNumber,
+                'abhaAddress' => $abhaAddress,
+                'name' => $name,
+                'gender' => $gender,
+                'yearOfBirth' => $yearOfBirth,
+            ]);
+
+            // Check response and handle errors
+            if ($response->successful()) {
+                return $response->json(); // Successful response as JSON
+            } else {
+                // Log error and return the status and error message
+                logger($response->body());
+                return response()->json([
+                    'message' => 'Token generation failed',
+                    'error' => $response->body()
+                ], $response->status());
+            }
+        } catch (\Exception $e) {
+            logger($e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
     public function verifyCard($abhaNumber)
     {
         try {

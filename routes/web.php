@@ -32,8 +32,21 @@ Route::get('/profile/qrcode', [AbdmController::class, 'getProfileQrCode'])->name
 Route::get('/abha-verification-by-aadhaar-number/send-otp', [AbdmController::class, 'abhaVerificationByAaadhaarNumberSendOtp'])->name('abha-verification-by-aadhaar-number-send-otp');
 Route::get('/abha-verification-by-aadhaar-number/verify-otp', [AbdmController::class, 'abhaVerificationByAaadhaarNumberVerifyOtp'])->name('abha-verification-by-aadhaar-number-verify-otp');
 
+//Find Abha Card
+Route::get('/abha/search-by-mobile-number', [AbdmController::class, 'abhaSearchByMobileNumber'])->name('abha-search-by-mobile-number');
+
+Route::get('/abha/search-by-abha-address', [AbdmController::class, 'abhaSearchByAbhaAddress'])->name('abha-search-by-abha-address');
+
+Route::get('/abha/search-by-abha-address-send-otp', [AbdmController::class, 'abhaSearchByAbhaAddressSendOtp'])->name('abha-search-by-abha-address-send-otp');
+Route::get('/abha/search-by-abha-address-verify-otp', [AbdmController::class, 'abhaSearchByAbhaAddressVerifyOtp'])->name('abha-search-by-abha-address-verify-otp');
+Route::get('/abha/search-by-abha-address-get-profile', [AbdmController::class, 'abhaSearchByAbhaAddressGetProfile'])->name('abha-search-by-abha-address-get-profile');
+Route::get('/abha/search-by-abha-address-get-qr-code', [AbdmController::class, 'abhaSearchByAbhaAddressGetQrCode'])->name('abha-search-by-abha-address-get-qr-code');   //giving error for this
+
 //M2
 Route::get('/upadate-bridge-url', [AbdmController::class, 'updateBridgeUrl'])->name('update-bridge-url');
+Route::get('/upadate-service-url', [AbdmController::class, 'updateServiceUrl'])->name('update-service-url');
+
+Route::get('/generate-token',[AbdmController::class, 'generateToken'])->name('generate-token');
 
 //Ayushman
 Route::get('/verify-ayushman-card', [AyushmanController::class, 'verifyCard']);
