@@ -640,7 +640,6 @@ class AbdmController extends Controller
         }
     }
 
-
     public function encryptAbhaAddress($abhaAddress, $publicKeyPath)
     {
         try {
