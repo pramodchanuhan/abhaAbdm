@@ -50,7 +50,7 @@ class AbdmController extends Controller
 
 
 
-    public function requestOtp()
+    public function requestOtp(Request $request)
     {
         try {
             //947292841782 //882260556552 //846741677520
