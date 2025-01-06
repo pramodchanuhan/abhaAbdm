@@ -52,9 +52,19 @@ class AbdmController extends Controller
 
     public function requestOtp(Request $request)
     {
+        $aadhaar = $request->query('aadhaar'); // Get the 'aadhaar' query parameter
+        $validator = \Illuminate\Support\Facades\Validator::make(['aadhaar' => $aadhaar], [
+            'aadhaar' => 'required|numeric|digits:12',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return validation errors
+        }
         try {
             //947292841782 //882260556552 //846741677520
-            $aadhaarNumber = '527613815535';
+            $aadhaarNumber = $aadhaar;
+            //$aadhaarNumber = '527613815535';
             $publicKeyPath = storage_path('keys/abdm_public_key.pem');
             $encryptedAadhaar = $this->encryptAadhaar($aadhaarNumber, $publicKeyPath);
             $payload = [
@@ -127,6 +137,20 @@ class AbdmController extends Controller
     }
     public function enrollByAadhaar(Request $request)
     {
+        $otp = $request->query('otp');
+        $mobilenumber = $request->query('mobilenumber');
+        $validator = \Illuminate\Support\Facades\Validator::make([
+            'otp' => $otp,
+            'mobilenumber' => $mobilenumber
+        ], [
+            'otp' => 'required',
+            'mobilenumber' => 'required|numeric|digits:10',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return HTTP 422 Unprocessable Entity status
+        }
         try {
             //$otp = $request->otp;
             $otp = '408322';
@@ -241,13 +265,17 @@ class AbdmController extends Controller
 
     public function enrollAbhaAddress(Request $request)
     {
+        $abhaAddress = $request->query('abhaAddress');
+        $validator = \Illuminate\Support\Facades\Validator::make(['abhaAddress' => $abhaAddress], [
+            'abhaAddress' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return validation errors
+        }
         try {
             $xToken = session()->get('enrollByAadhaartxnId');
-            // Validate the incoming request if needed
-            // $request->validate([
-            //     'txnId' => 'required|string',
-            //     'abhaAddress' => 'required|string',
-            // ]);
 
             // Prepare the request data
             $data = [
@@ -318,7 +346,17 @@ class AbdmController extends Controller
 
     public function enrollByDLSendOtp(Request $request)
     {
+        $mobileNumber = $request->query('mobileNumber');
+            $validator = \Illuminate\Support\Facades\Validator::make(['mobileNumber' => $mobileNumber], [
+                'mobileNumber' => 'required',
+            ]);
+            if ($validator->fails()) {
+                return response()->json([
+                    'errors' => $validator->errors(),
+                ], 422); // Return validation errors
+            }
         try {
+            
             // Validate the incoming request if needed
             // $request->validate([
             //     'mobileNumber' => 'required|string|min:10|max:10',
@@ -342,6 +380,15 @@ class AbdmController extends Controller
 
     public function enrollByDLVerifyOtp(Request $request)
     {
+        $otp = $request->query('otp');
+        $validator = \Illuminate\Support\Facades\Validator::make(['otp' => $otp], [
+            'otp' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return validation errors
+        }
         try {
             // $request->validate([
             //     'otp' => 'required|string',
@@ -459,10 +506,16 @@ class AbdmController extends Controller
 
     public function abhaVerificationSendOtp(Request $request)
     {
+        $abhaNumber = $request->query('abhaNumber');
+        $validator = \Illuminate\Support\Facades\Validator::make(['abhaNumber' => $abhaNumber], [
+            'abhaNumber' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return validation errors
+        }
         try {
-            // $request->validate([
-            //     'abhaNumber' => 'required|string',
-            // ]);
 
             $abhaNumber = '91-5662-8037-6633';
             $publicKeyPath = storage_path('keys/abdm_public_key.pem');
@@ -483,10 +536,16 @@ class AbdmController extends Controller
 
     public function abhaVerificationVerifyOtp(Request $request)
     {
+        $otpValue = $request->query('otpValue');
+        $validator = \Illuminate\Support\Facades\Validator::make(['otpValue' => $otpValue], [
+            'otpValue' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return validation errors
+        }
         try {
-            // $request->validate([
-            //     'otpValue' => 'required|string', // Ensure OTP value is not empty
-            // ]);
             $otp = '301967';
             $txnId = session()->get('abhaVerificationSendOtpTxnId');
             $publicKeyPath = storage_path('keys/abdm_public_key.pem');
@@ -507,10 +566,16 @@ class AbdmController extends Controller
 
     public function abhaVerificationByMobileNumberSendOtp(Request $request)
     {
+        $mobileNumber = $request->query('mobileNumber');
+        $validator = \Illuminate\Support\Facades\Validator::make(['mobileNumber' => $mobileNumber], [
+            'mobileNumber' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return validation errors
+        }
         try {
-            // $request->validate([
-            //     'mobileNumber' => 'required|string',
-            // ]);
             $mobileNumber = '9027956097';
             $publicKeyPath = storage_path('keys/abdm_public_key.pem');
             $encryptedMobileNumber = $this->encryptMobilenumber($mobileNumber, $publicKeyPath);
@@ -529,10 +594,16 @@ class AbdmController extends Controller
 
     public function abhaVerificationByMobileNumberVerifyOtp(Request $request)
     {
+        $otp = $request->query('otp');
+        $validator = \Illuminate\Support\Facades\Validator::make(['otp' => $otp], [
+            'otp' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return validation errors
+        }
         try {
-            // $request->validate([
-            //     'otpValue' => 'required|string', // Ensure the encrypted OTP is provided
-            // ]);
             $otp = '446256';
             $txnId = session()->get('abhaVerificationByMobileNumberSendOtpTxnId');
             $publicKeyPath = storage_path('keys/abdm_public_key.pem');
@@ -553,10 +624,16 @@ class AbdmController extends Controller
 
     public function verifyUser(Request $request)
     {
+        $abhaNumber = $request->query('abhaNumber');
+        $validator = \Illuminate\Support\Facades\Validator::make(['abhaNumber' => $abhaNumber], [
+            'abhaNumber' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return validation errors
+        }
         try {
-            // $request->validate([
-            //     'abhaNumber' => 'required|string', // Ensure the encrypted OTP is provided
-            // ]);
             $abhaNumber = '91-5662-8037-6633';
             $txnId = session()->get('abhaVerificationByMobileNumberVerifyOtpTxnId');
             $jwtToken = session()->get('abhaVerificationByMobileNumberVerifyOtpJwtToken');
@@ -573,12 +650,18 @@ class AbdmController extends Controller
         }
     }
 
-    public function abhaVerificationByAaadhaarNumberSendOtp()
+    public function abhaVerificationByAaadhaarNumberSendOtp(Request $request)
     {
+        $aadhaarNumber = $request->query('aadhaarNumber');
+        $validator = \Illuminate\Support\Facades\Validator::make(['aadhaarNumber' => $aadhaarNumber], [
+            'aadhaarNumber' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return validation errors
+        }
         try {
-            // $request->validate([
-            //     'aadhaarNumber' => 'required|string',
-            // ]);
             $aadhaarNumber = '527613815535';
             $publicKeyPath = storage_path('keys/abdm_public_key.pem');
             $encryptedAadhaarNumber = $this->encryptAadhaar($aadhaarNumber, $publicKeyPath);
@@ -595,12 +678,18 @@ class AbdmController extends Controller
         }
     }
 
-    public function abhaVerificationByAaadhaarNumberVerifyOtp()
+    public function abhaVerificationByAaadhaarNumberVerifyOtp(Request $request)
     {
+        $otp = $request->query('otp');
+        $validator = \Illuminate\Support\Facades\Validator::make(['otp' => $otp], [
+            'otp' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return validation errors
+        }
         try {
-            // $request->validate([
-            //     'otpValue' => 'required|string', // Ensure the encrypted OTP is provided
-            // ]);
             $otp = '319300';
             $txnId = session()->get('abhaVerificationByAaadhaarNumberSendOtpTxnId');
             $publicKeyPath = storage_path('keys/abdm_public_key.pem');
@@ -620,10 +709,16 @@ class AbdmController extends Controller
 
     public function abhaSearchByMobileNumber(Request $request)
     {
+        $mobileNumber = $request->query('otp');
+        $validator = \Illuminate\Support\Facades\Validator::make(['mobileNumber' => $mobileNumber], [
+            'mobileNumber' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return validation errors
+        }
         try {
-            // $request->validate([
-            //     'mobileNumber' => 'required|digits:10',
-            // ]);
             $mobileNumber = '9027956097';
             $publicKeyPath = storage_path('keys/abdm_public_key.pem');
             $encryptedMobilenumber = $this->encryptMobilenumber($mobileNumber, $publicKeyPath);
@@ -682,12 +777,18 @@ class AbdmController extends Controller
     }
 
 
-    public function abhaSearchByAbhaAddress()
+    public function abhaSearchByAbhaAddress(Request $request)
     {
+        $abhaaddress = $request->query('abhaaddress');
+        $validator = \Illuminate\Support\Facades\Validator::make(['abhaaddress' => $abhaaddress], [
+            'abhaaddress' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return validation errors
+        }
         try {
-            // $request->validate([
-            //     'abhaAddress' => 'required|string', 
-            // ]);
             $abhaaddress = 'pramod_kumar100610@sbx';
             $response = $this->abdmService->abhaSearchByAbhaAddress($abhaaddress);
             if (!empty($response['abhaAddress'])) {
@@ -702,12 +803,18 @@ class AbdmController extends Controller
         }
     }
 
-    public function abhaSearchByAbhaAddressSendOtp()
+    public function abhaSearchByAbhaAddressSendOtp(Request $request)
     {
+        $abhaSearchByAbhaAddress = $request->query('abhaSearchByAbhaAddress');
+        $validator = \Illuminate\Support\Facades\Validator::make(['abhaSearchByAbhaAddress' => $abhaSearchByAbhaAddress], [
+            'abhaSearchByAbhaAddress' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return validation errors
+        }
         try {
-            // $request->validate([
-            //     'abhaAddress' => 'required|string', 
-            // ]);
             //$abhaSearchByAbhaAddress = session()->get('abhaSearchByAbhaAddress');
             $abhaSearchByAbhaAddress = 'pramod_kumar100610@sbx';
             $publicKeyPath = storage_path('keys/abdm_public_key.pem');
@@ -726,8 +833,17 @@ class AbdmController extends Controller
         }
     }
 
-    public function abhaSearchByAbhaAddressVerifyOtp()
+    public function abhaSearchByAbhaAddressVerifyOtp(Request $request)
     {
+        $otp = $request->query('otp');
+        $validator = \Illuminate\Support\Facades\Validator::make(['otp' => $otp], [
+            'otp' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return validation errors
+        }
         try {
             // $request->validate([
             //     'otp' => 'required|string',
@@ -789,6 +905,27 @@ class AbdmController extends Controller
 
     public function generateToken(Request $request)
     {
+        $abhaNumber = $request->query('abhaNumber');
+        $abhaAddress = $request->query('abhaAddress');
+        $name = $request->query('name');
+        $gender = $request->query('gender');
+        $yearOfBirth = $request->query('yearOfBirth');
+        $hipId = $request->query('hipId');
+        $validator = \Illuminate\Support\Facades\Validator::make(['abhaNumber' => $abhaNumber, 'abhaAddress' => $abhaAddress, 'name' => $name, 'gender' => $gender, 'yearOfBirth' => $yearOfBirth, 'hipId' => $hipId, 'cmId' => $cmId], [
+            'abhaNumber' => 'required',
+            'abhaAddress' => 'required',
+            'name' => 'required',
+            'gender' => 'required',
+            'yearOfBirth' => 'required',
+            'hipId' => 'required',
+            'cmId' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors(),
+            ], 422); // Return validation errors
+        }
+
         // $request->validate([
         //     'abhaNumber' => 'required|string',
         //     'abhaAddress' => 'required|string',
@@ -823,16 +960,16 @@ class AbdmController extends Controller
     public function updateBridgeUrl(Request $request)
     {
         try {
-        //     $request->validate([
-        //'url' => 'required|string',
-        $url = 'https://dev.abdm.gov.in/api/hiecm/gateway/v3/bridge/url';
-        // ]);
-        $data = [
-            'url' => $url,
-            'X-CM-ID' => 'sbx',
-        ];
-        $response = $this->abdmService->updateBridgeUrl($data);
-        return response()->json($response);
+            //     $request->validate([
+            //'url' => 'required|string',
+            $url = 'https://dev.abdm.gov.in/api/hiecm/gateway/v3/bridge/url';
+            // ]);
+            $data = [
+                'url' => $url,
+                'X-CM-ID' => 'sbx',
+            ];
+            $response = $this->abdmService->updateBridgeUrl($data);
+            return response()->json($response);
         } catch (\Exception $e) {
             logger($e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
@@ -842,26 +979,26 @@ class AbdmController extends Controller
     public function updateServiceUrl(Request $request)
     {
         try {
-        //     $request->validate([
-        //'url' => 'required|string',
-        $url = env('SES_API_BASE_URL') . '/v1/bridges/MutipleHRPAddUpdateServices';
-        $token = env('SES_API_BEARER_TOKEN');
-    
-        // Request payload
-        $data = [
-            "facilityId" => "IN0911597591",
-            "facilityName" => "Pramod",
-            "HRP" => [
-                [
-                    "bridgeId" => "test1",
-                    "hipName" => "Pramod",
-                    "type" => "HIP",
-                    "active" => true
+            //     $request->validate([
+            //'url' => 'required|string',
+            $url = env('SES_API_BASE_URL') . '/v1/bridges/MutipleHRPAddUpdateServices';
+            $token = env('SES_API_BEARER_TOKEN');
+
+            // Request payload
+            $data = [
+                "facilityId" => "IN0911597591",
+                "facilityName" => "Pramod",
+                "HRP" => [
+                    [
+                        "bridgeId" => "test1",
+                        "hipName" => "Pramod",
+                        "type" => "HIP",
+                        "active" => true
+                    ]
                 ]
-            ]
-        ];
-        $response = $this->abdmService->updateServiceUrl($data, $url);
-        return response()->json($response);
+            ];
+            $response = $this->abdmService->updateServiceUrl($data, $url);
+            return response()->json($response);
         } catch (\Exception $e) {
             logger($e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
